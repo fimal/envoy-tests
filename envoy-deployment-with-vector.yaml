@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy
+  namespace: kwaf
+spec:
+  selector:
+    matchLabels:
+      app: envoy
+  template:
+    metadata:
+      labels:
+        app: envoy
+    spec:
+      containers:
+      - name: envoy
+        image: envoyproxy/envoy:dev
+        ports:
+        - containerPort: 9000
+          name: vip
+        - containerPort: 19010
+          name: stats
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy/envoy.yaml
+          subPath: envoy.yaml
+      - name: logagent
+        image: timberio/vector:0.40.0-debian
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 2025
+          name: la-stats
+          protocol: TCP
+        volumeMounts:
+        - mountPath: "/etc/vector/vector.yaml"
+          subPath: "vector.yaml"
+          name: logagent-config
+      volumes:
+      - name: envoy-config
+        configMap:
+          name: envoy-config
+      - configMap:
+          name: vector-cfg
+        name: logagent-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy
+  namespace: kwaf
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9000
+  selector:
+    app: envoy
